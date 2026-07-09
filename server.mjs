@@ -11,6 +11,7 @@ import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getCodexLiveLimits } from "./codex-live-limits.mjs";
+import { getClaudeLiveLimits } from "./claude-live-limits.mjs";
 
 const DIR = fileURLToPath(new URL(".", import.meta.url));
 const PORT = parseInt(process.argv[2] || "8484", 10);
@@ -93,6 +94,20 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/api/codex-live-limits") {
     try {
       const limits = await getCodexLiveLimits();
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(limits));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: err?.message || String(err) }));
+    }
+    return;
+  }
+
+  if (url.pathname === "/api/claude-live-limits") {
+    try {
+      // Merges this device's own snapshot with any synced from other
+      // devices (see sync-claude-limits.sh) and returns the freshest.
+      const limits = await getClaudeLiveLimits();
       res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       res.end(JSON.stringify(limits));
     } catch (err) {

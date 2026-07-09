@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codex Usage Dashboard</title>
+<style>
+  /* Duplicated (not shared) from index.html's <style> block on purpose — see
+     usage-dashboard build notes: safer to keep index.html's CSS untouched
+     than risk a visual regression by extracting shared CSS mid-flight. */
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2d3148;
+    --text: #e4e4e7;
+    --text-dim: #8b8fa3;
+    --accent: #8b5cf6;
+    --accent2: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header h1 a { font-size: 13px; font-weight: 500; color: var(--text-dim); text-decoration: none; margin-left: 12px; }
+  .header h1 a:hover { color: var(--text); }
+  .header-meta { color: var(--text-dim); font-size: 13px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+
+  /* Metric cards */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .metric-card .label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .metric-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .metric-card .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .accent-value { color: var(--accent); }
+  .blue-value { color: var(--blue); }
+
+  /* Chart-style cards (hand-rolled bars, no Chart.js) */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .chart-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-dim);
+  }
+
+  /* Hand-rolled CSS bar list */
+  .bar-list { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 90px; gap: 10px; align-items: center; font-size: 12px; }
+  .bar-row .bar-label { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; height: 16px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 3px 0 0 3px; min-width: 2px; }
+  .bar-row .bar-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+
+  /* Tables */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .table-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:hover { background: var(--surface2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--text-dim); }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--surface2);
+  }
+  .empty-state {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Codex</span> Usage Dashboard <a href="index.html">&larr; Claude Code usage</a></h1>
+  <div class="header-meta" id="headerMeta"></div>
+</div>
+
+<div id="live-quotas"></div>
+
+<div class="container" id="mainContainer">
+  <div class="metrics" id="summaryMetrics"></div>
+
+  <div class="chart-card">
+    <h3>Daily Token Trend (last 30 days)</h3>
+    <div class="bar-list" id="dailyBars"></div>
+  </div>
+
+  <div class="chart-card">
+    <h3>Project Ranking</h3>
+    <div class="bar-list" id="projectBars"></div>
+  </div>
+
+  <div class="table-card">
+    <h3>Model Breakdown</h3>
+    <table id="modelTable">
+      <thead><tr>
+        <th>Model</th>
+        <th class="num">Sessions</th>
+        <th class="num">Input</th>
+        <th class="num">Cached Input</th>
+        <th class="num">Output</th>
+        <th class="num">Reasoning Output</th>
+        <th class="num">Total Tokens</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="table-card">
+    <h3>Recent Sessions</h3>
+    <table id="sessionTable">
+      <thead><tr>
+        <th>Date</th>
+        <th>Project</th>
+        <th>Title</th>
+        <th>Model</th>
+        <th class="num">Total Tokens</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="live-quotas.js"></script>
+<script>
+var DATA = null;
+
+fetch("codex-usage-data.json")
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (d) { DATA = d; init(); })
+  .catch(function () { DATA = null; init(); });
+
+function fmt(n) {
+  n = Number(n) || 0;
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(n);
+}
+function fmtFull(n) { return (Number(n) || 0).toLocaleString(); }
+function fmtDate(iso) { if (!iso) return "-"; try { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); } catch (e) { return "-"; } }
+function fmtDateShort(iso) { if (!iso) return "-"; try { return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch (e) { return "-"; } }
+function fmtDateTime(iso) { if (!iso) return "-"; try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return "-"; } }
+function truncate(s, n) { if (!s) return ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+function metricCard(label, value, sub, cls) {
+  return '<div class="metric-card"><div class="label">' + label + '</div><div class="value ' + (cls || "") + '">' + value + "</div>" + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>";
+}
+function barRow(label, value, max, valueLabel) {
+  var pct = max > 0 ? Math.max(2, (value / max) * 100) : 0;
+  return '<div class="bar-row">' +
+    '<div class="bar-label" title="' + escapeHtml(label) + '">' + escapeHtml(label) + '</div>' +
+    '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="bar-value">' + (valueLabel !== undefined ? valueLabel : fmt(value)) + '</div>' +
+    '</div>';
+}
+function escapeHtml(s) {
+  if (s === null || s === undefined) return "";
+  var div = document.createElement("div");
+  div.textContent = String(s);
+  return div.innerHTML;
+}
+
+function init() {
+  var container = document.getElementById("mainContainer");
+  var noData = !DATA || !DATA.summary || !DATA.summary.totalSessions;
+
+  if (noData) {
+    document.getElementById("headerMeta").textContent = "";
+    container.innerHTML = '<div class="empty-state">No Codex usage data yet.<br><span class="dim" style="font-size:12px;">codex-usage-data.json is missing or empty — it will populate once the Codex usage aggregation has run.</span></div>';
+    return;
+  }
+
+  var s = DATA.summary;
+  document.getElementById("headerMeta").textContent =
+    fmtDate(s.dateRange && s.dateRange.earliest) + " - " + fmtDate(s.dateRange && s.dateRange.latest) +
+    " | Generated " + fmtDateTime(DATA.generated);
+
+  renderSummary();
+  renderDailyBars();
+  renderProjectBars();
+  renderModelTable();
+  renderSessionTable();
+}
+
+function renderSummary() {
+  var s = DATA.summary;
+  document.getElementById("summaryMetrics").innerHTML =
+    metricCard("Total Sessions", fmtFull(s.totalSessions), s.totalFiles + " log files") +
+    metricCard("Total Tokens", fmt(s.totalTokens), fmtFull(s.totalTokens) + " tokens", "blue-value") +
+    metricCard("Date Range", fmtDate(s.dateRange && s.dateRange.earliest) + " – " + fmtDate(s.dateRange && s.dateRange.latest), "") +
+    metricCard("Skipped (no usage)", fmtFull(s.filesSkippedNoUsage || 0), "log files with no usage data", "accent-value");
+}
+
+function renderDailyBars() {
+  var el = document.getElementById("dailyBars");
+  var byDay = DATA.byDay || {};
+  var days = Object.keys(byDay).sort().slice(-30);
+  if (!days.length) { el.innerHTML = '<div class="dim" style="font-size:12px;padding:8px 0;">No daily data.</div>'; return; }
+  var max = Math.max.apply(null, days.map(function (d) { return byDay[d].total_tokens || 0; }));
+  el.innerHTML = days.map(function (d) {
+    return barRow(d, byDay[d].total_tokens || 0, max);
+  }).join("");
+}
+
+function renderProjectBars() {
+  var el = document.getElementById("projectBars");
+  var byProject = DATA.byProject || {};
+  var entries = Object.entries(byProject).sort(function (a, b) { return (b[1].total_tokens || 0) - (a[1].total_tokens || 0); });
+  if (!entries.length) { el.innerHTML = '<div class="dim" style="font-size:12px;padding:8px 0;">No project data.</div>'; return; }
+  var max = entries.length ? (entries[0][1].total_tokens || 0) : 0;
+  el.innerHTML = entries.map(function (e) {
+    var label = e[0] + " (" + fmtFull(e[1].sessions || 0) + " sessions)";
+    return barRow(label, e[1].total_tokens || 0, max);
+  }).join("");
+}
+
+function renderModelTable() {
+  var byModel = DATA.byModel || {};
+  var entries = Object.entries(byModel).sort(function (a, b) { return (b[1].total_tokens || 0) - (a[1].total_tokens || 0); });
+  var tbody = document.querySelector("#modelTable tbody");
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="7" class="dim">No model data.</td></tr>'; return; }
+  tbody.innerHTML = entries.map(function (e) {
+    var m = e[0], d = e[1];
+    return "<tr>" +
+      '<td><span class="tag">' + escapeHtml(m) + '</span></td>' +
+      '<td class="num">' + fmtFull(d.sessions) + "</td>" +
+      '<td class="num">' + fmt(d.input_tokens) + "</td>" +
+      '<td class="num">' + fmt(d.cached_input_tokens) + "</td>" +
+      '<td class="num">' + fmt(d.output_tokens) + "</td>" +
+      '<td class="num">' + fmt(d.reasoning_output_tokens) + "</td>" +
+      '<td class="num">' + fmt(d.total_tokens) + "</td></tr>";
+  }).join("");
+}
+
+function renderSessionTable() {
+  var sessions = (DATA.sessions || []).slice().sort(function (a, b) {
+    var av = a.end ? new Date(a.end).getTime() : 0;
+    var bv = b.end ? new Date(b.end).getTime() : 0;
+    return bv - av;
+  }).slice(0, 50);
+  var tbody = document.querySelector("#sessionTable tbody");
+  if (!sessions.length) { tbody.innerHTML = '<tr><td colspan="5" class="dim">No sessions.</td></tr>'; return; }
+  tbody.innerHTML = sessions.map(function (s) {
+    var tokens = s.tokens || {};
+    return "<tr>" +
+      "<td>" + fmtDateTime(s.end) + "</td>" +
+      "<td>" + escapeHtml(s.project || "-") + "</td>" +
+      "<td title=\"" + escapeHtml(s.title || "") + "\">" + escapeHtml(truncate(s.title, 60)) + "</td>" +
+      '<td><span class="tag">' + escapeHtml(s.model || "-") + '</span></td>' +
+      '<td class="num">' + fmt(tokens.total_tokens) + "</td></tr>";
+  }).join("");
+}
+</script>
+</body>
+</html>

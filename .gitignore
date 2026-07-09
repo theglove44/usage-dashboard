@@ -1,0 +1,4 @@
+*.json
+*.log
+.memsearch/
+.DS_Store

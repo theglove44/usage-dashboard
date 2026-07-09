@@ -7,11 +7,11 @@
  * temp file before being opened, and the temp copy is deleted afterward.
  */
 
-import { readdir, readFile, stat, writeFile, copyFile, unlink, rename } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile, copyFile, unlink } from "node:fs/promises";
 import { join, basename, dirname } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { getCodexLiveLimits } from "./codex-live-limits.mjs";
+import { writeLiveSnapshot } from "./codex-live-limits.mjs";
 
 const HOME = homedir();
 const SESSIONS_DIRS = [
@@ -247,16 +247,11 @@ async function main() {
   console.log(`Output: ${outPath}`);
 
   // Write live rate-limit snapshot, atomically.
-  const rateLimitsPath = join(dirname(new URL(import.meta.url).pathname), "codex-rate-limits.json");
-  const tmpRateLimitsPath = `${rateLimitsPath}.tmp.${process.pid}`;
   try {
-    const liveLimits = await getCodexLiveLimits();
-    await writeFile(tmpRateLimitsPath, JSON.stringify(liveLimits, null, 2));
-    await rename(tmpRateLimitsPath, rateLimitsPath);
-    console.log(`Rate limits: ${rateLimitsPath}`);
+    await writeLiveSnapshot();
+    console.log(`Rate limits: ${join(dirname(new URL(import.meta.url).pathname), "codex-rate-limits.json")}`);
   } catch (err) {
     console.error(`  WARN: failed to write codex-rate-limits.json: ${err?.message || err}`);
-    await unlink(tmpRateLimitsPath).catch(() => {});
   }
 }
 

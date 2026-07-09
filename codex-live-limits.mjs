@@ -12,11 +12,13 @@
  * from sessions run on this machine.
  */
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+
+const RATE_LIMITS_PATH = join(homedir(), ".claude", "usage-dashboard", "codex-rate-limits.json");
 
 const RPC_TIMEOUT_MS = 8000;
 
@@ -250,6 +252,18 @@ export async function getCodexLiveLimits() {
   }
 }
 
+// Writes the live snapshot to codex-rate-limits.json, atomically. This is
+// what actually keeps the file fresh — reading it alone (getCodexLiveLimits)
+// doesn't persist anything, so something has to call this periodically or
+// the menu bar app just keeps re-reading a stale file forever.
+export async function writeLiveSnapshot() {
+  const limits = await getCodexLiveLimits();
+  const tmp = `${RATE_LIMITS_PATH}.tmp.${process.pid}`;
+  await writeFile(tmp, JSON.stringify(limits, null, 2));
+  await rename(tmp, RATE_LIMITS_PATH);
+  return limits;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  getCodexLiveLimits().then((r) => console.log(JSON.stringify(r, null, 2)));
+  writeLiveSnapshot().then((r) => console.log(JSON.stringify(r, null, 2)));
 }
